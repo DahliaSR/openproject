@@ -137,6 +137,7 @@ module Redmine
     # otherwise just use the date in the time zone attached to the time
     def format_time_as_date(time, format)
       return nil unless time
+
       zone = User.current.time_zone
       local_date = (zone ? time.in_time_zone(zone) : (time.utc? ? time.localtime : time)).to_date
       local_date.strftime(format)
@@ -144,6 +145,7 @@ module Redmine
 
     def format_time(time, include_date = true)
       return nil unless time
+
       time = time.to_time if time.is_a?(String)
       zone = User.current.time_zone
       local = zone ? time.in_time_zone(zone) : (time.utc? ? time.to_time.localtime : time)

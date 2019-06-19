@@ -28,12 +28,12 @@ class Meeting < ActiveRecord::Base
   has_many :contents, -> { readonly }, class_name: 'MeetingContent'
   has_many :participants, dependent: :destroy, class_name: 'MeetingParticipant'
 
-  default_scope {
-    order("#{Meeting.table_name}.start_time DESC")
-  }
+  default_scope do
+    order(start_time: :desc)
+  end
   scope :from_tomorrow, -> { where(['start_time >= ?', Date.tomorrow.beginning_of_day]) }
   scope :with_users_by_date, -> {
-    order("#{Meeting.table_name}.title ASC")
+    order(title: :asc)
       .includes({ participants: :user }, :author)
   }
 
@@ -45,7 +45,7 @@ class Meeting < ActiveRecord::Base
                      date_column: "#{table_name}.created_at"
 
   acts_as_journalized
-  acts_as_event title: Proc.new {|o|
+  acts_as_event title: Proc.new { |o|
     "#{l :label_meeting}: #{o.title} \
                  #{format_date o.start_time} \
                  #{format_time o.start_time, false}-#{format_time o.end_time, false})"
@@ -63,44 +63,30 @@ class Meeting < ActiveRecord::Base
 
   validates_presence_of :title, :duration
 
-  # We only save start_time as an aggregated value of start_date and hour,
-  # but still need start_date and _hour for validation purposes
-  attr_reader :start_date, :start_time_hour
-  validate :validate_date_and_time
-  before_save :update_start_time!
-
   before_save :add_new_participants_as_watcher
 
   after_initialize :set_initial_values
 
   User.before_destroy do |user|
-    Meeting.where(['author_id = ?', user.id]).update_all ['author_id = ?', DeletedUser.first.id]
+    Meeting.where(author_id: user.id).update_all(author_id: DeletedUser.first.id)
   end
 
-  ##
-  # Assign a date string without validation
-  # The actual aggregated start_time is derived after valdiation
-  def start_date=(value)
-    attribute_will_change! :start_date
-    @start_date = value
+  def start_date
+    start_time.to_date
   end
 
-  ##
-  # Assign a HH:MM hour string without validation
-  # The actual aggregated start_time is derived after valdiation
-  def start_time_hour=(value)
-    attribute_will_change! :start_time_hour
-    @start_time_hour = value
-  end
+  def user_start_time
+    return nil unless start_time
 
-  ##
-  # Return the computed start_time when changed
-  def start_time
-    if parse_start_time?
-      parsed_start_time
-    else
-      super
+    zone = User.current.time_zone
+
+    unless zone
+      localzone = Time.now.utc_offset
+      localzone -= 3600 if Time.now.dst?
+      zone = ::ActiveSupport::TimeZone[localzone]
     end
+
+    start_time.in_time_zone(zone)
   end
 
   def start_month
@@ -126,7 +112,7 @@ class Meeting < ActiveRecord::Base
   def author=(user)
     super
     # Don't add the author as participant if we already have some through nested attributes
-    participants.build(user: user, invited: true) if self.new_record? && participants.empty? && user
+    participants.build(user: user, invited: true) if new_record? && participants.empty? && user
   end
 
   # Returns true if usr or current user is allowed to view the meeting
@@ -164,17 +150,11 @@ class Meeting < ActiveRecord::Base
     end
 
     meetings.group_by(&:start_year).each do |year, objs|
-
       objs.group_by(&:start_month).each do |month, objs|
-
         objs.group_by(&:start_time).each do |date, objs|
-
           by_start_year_month_date[year][month][date] = objs
-
         end
-
       end
-
     end
 
     by_start_year_month_date
@@ -203,7 +183,7 @@ class Meeting < ActiveRecord::Base
   alias :original_participants_attributes= :participants_attributes=
   def participants_attributes=(attrs)
     attrs.each do |participant|
-      participant['_destroy'] = true if !(participant['attended'] || participant['invited'])
+      participant['_destroy'] = true unless participant['attended'] || participant['invited']
     end
     self.original_participants_attributes = attrs
   end
@@ -212,11 +192,9 @@ class Meeting < ActiveRecord::Base
 
   def set_initial_values
     # set defaults
-    write_attribute(:start_time, Date.tomorrow + 10.hours) if start_time.nil?
-    self.duration   ||= 1
-
-    @start_date = start_time.to_date.iso8601
-    @start_time_hour = start_time.strftime('%H:%M')
+    # start_time default is not set here to factor in the user's time_zone. It is thus done in the
+    # view where it is considered to be in the user's local time zone.
+    self.duration ||= 1
   end
 
   private
@@ -232,54 +210,6 @@ class Meeting < ActiveRecord::Base
     else
       errors.add :start_time, :invalid if start_time.nil?
     end
-  end
-
-  ##
-  # Actually sets the aggregated start_time attribute.
-  def update_start_time!
-    write_attribute(:start_time, start_time)
-  end
-
-  ##
-  # Determines whether new raw values werde provided.
-  def parse_start_time?
-    !(changed & %w(start_date start_time_hour)).empty?
-  end
-
-  ##
-  # Returns the parse result of both start_date and start_time_hour
-  def parsed_start_time
-    date = parsed_start_date
-    time = parsed_start_time_hour
-
-    if date.nil? || time.nil?
-      raise ArgumentError, 'Provided composite start_time is invalid.'
-    end
-
-    Time.zone.local(
-      date.year,
-      date.month,
-      date.day,
-      time.hour,
-      time.min
-    )
-  end
-
-  ##
-  # Enforce ISO 8601 date parsing for the given input string
-  # This avoids weird parsing of dates due to malformed input.
-  def parsed_start_date
-    Date.iso8601(@start_date)
-  rescue ArgumentError
-    nil
-  end
-
-  ##
-  # Enforce HH::MM time parsing for the given input string
-  def parsed_start_time_hour
-    Time.strptime(@start_time_hour, '%H:%M')
-  rescue ArgumentError
-    nil
   end
 
   def add_new_participants_as_watcher

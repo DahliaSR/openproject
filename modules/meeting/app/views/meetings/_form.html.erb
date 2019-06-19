@@ -40,27 +40,29 @@ See doc/COPYRIGHT.md for more details.
 
     <div class="form--field-container">
       <%= f.text_field :start_date,
-            id: 'meeting-form-start-date',
-            class: '-augmented-datepicker',
-            required: true,
-            size:     10,
-            no_label: true,
-            container_class: '-xslim' %>
+                       value: (f.object.user_start_time || (Date.tomorrow + 10.hours)).to_date,
+                       id: 'meeting-form-start-date',
+                       class: '-augmented-datepicker',
+                       required: true,
+                       size:     10,
+                       no_label: true,
+                       container_class: '-xslim' %>
       <label for="meeting-form-start-time" class="hidden-for-sighted">
         <%= Meeting.human_attribute_name(:start_time) %>
         <label lang="en">
           <%= t(:label_time_zone) %>
-          <%= Time.zone.to_s %>
+          <%= User.current.time_zone.to_s || Time.zone.to_s %>
         </label>
       </label>
       <%= f.text_field :start_time_hour,
-            id: 'meeting-form-start-time',
-            required: true,
-            type:     'time',
-            no_label: true,
-            step:     5.minutes,
-            suffix:   Time.zone.to_s,
-            container_class: '-xslim' %>
+                       value: (f.object.user_start_time || Date.tomorrow + 10.hours).strftime('%H:%M'),
+                       id: 'meeting-form-start-time',
+                       required: true,
+                       type:     'time',
+                       no_label: true,
+                       step:     5.minutes,
+                       suffix:   User.current.time_zone.to_s || Time.zone.to_s,
+                       container_class: '-xslim' %>
     </div>
   </div>
 

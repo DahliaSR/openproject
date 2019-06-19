@@ -100,8 +100,6 @@ describe MeetingsController, type: :controller do
     end
 
     describe 'create' do
-      render_views
-
       before do
         allow(Project).to receive(:find).and_return(project)
         post :create,
@@ -125,10 +123,9 @@ describe MeetingsController, type: :controller do
         it 'renders an error' do
           expect(response.status).to eql 200
           expect(response).to render_template :new
-          expect(response.body)
-            .to have_selector '#errorExplanation li',
-                              text: "Start date " +
-                                    I18n.t('activerecord.errors.messages.not_an_iso_date')
+
+          expect(assigns(:@meeting).errors.full_messages)
+            .to match_array ["Start date " + I18n.t('activerecord.errors.messages.not_an_iso_date')]
         end
       end
 
@@ -143,10 +140,9 @@ describe MeetingsController, type: :controller do
         it 'renders an error' do
           expect(response.status).to eql 200
           expect(response).to render_template :new
-          expect(response.body)
-            .to have_selector '#errorExplanation li',
-                              text: "Starting time " +
-                                    I18n.t('activerecord.errors.messages.invalid_time_format')
+
+          expect(assigns(:@meeting).errors.full_messages)
+            .to match_array ["Starting time " + I18n.t('activerecord.errors.messages.invalid_time_format')]
         end
       end
     end

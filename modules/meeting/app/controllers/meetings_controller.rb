@@ -19,7 +19,6 @@
 #++
 
 class MeetingsController < ApplicationController
-  around_action :set_time_zone
   before_action :find_project, only: [:index, :new, :create]
   before_action :find_meeting, except: [:index, :new, :create]
   before_action :convert_params, only: [:create, :update]
@@ -39,9 +38,7 @@ class MeetingsController < ApplicationController
     tomorrows_meetings_count = scope.from_tomorrow.count
     @page_of_today = 1 + tomorrows_meetings_count / per_page_param
 
-    page = params['page'] ?
-             page_param :
-             @page_of_today
+    page = params['page'] ? page_param : @page_of_today
 
     @meetings = scope.with_users_by_date
                 .page(page)
@@ -58,16 +55,18 @@ class MeetingsController < ApplicationController
     @meeting.participants.clear # Start with a clean set of participants
     @meeting.participants_attributes = @converted_params.delete(:participants_attributes)
     @meeting.attributes = @converted_params
+
     if params[:copied_from_meeting_id].present? && params[:copied_meeting_agenda_text].present?
       @meeting.agenda = MeetingAgenda.new(
         text: params[:copied_meeting_agenda_text],
         comment: "Copied from Meeting ##{params[:copied_from_meeting_id]}")
       @meeting.agenda.author = User.current
     end
+
     if @meeting.save
-      text = l(:notice_successful_create)
+      text = t(:notice_successful_create)
       if User.current.time_zone.nil?
-        link = l(:notice_timezone_missing, zone: Time.zone)
+        link = t(:notice_timezone_missing, zone: Time.zone)
         text += " #{view_context.link_to(link, { controller: '/my', action: :account }, class: 'link_to_profile')}"
       end
       flash[:notice] = text.html_safe
@@ -78,8 +77,7 @@ class MeetingsController < ApplicationController
     end
   end
 
-  def new
-  end
+  def new; end
 
   current_menu_item :new do
     :meetings
@@ -98,8 +96,7 @@ class MeetingsController < ApplicationController
     redirect_to action: 'index', project_id: @project
   end
 
-  def edit
-  end
+  def edit; end
 
   def update
     @meeting.participants_attributes = @converted_params.delete(:participants_attributes)
@@ -113,20 +110,6 @@ class MeetingsController < ApplicationController
   end
 
   private
-
-  def set_time_zone
-    old_time_zone = Time.zone
-    zone = User.current.time_zone
-    if zone.nil?
-      localzone = Time.now.utc_offset
-      localzone -= 3600 if Time.now.dst?
-      zone = ::ActiveSupport::TimeZone[localzone]
-    end
-    Time.zone = zone
-    yield
-  ensure
-    Time.zone = old_time_zone
-  end
 
   def find_project
     @project = Project.find(params[:project_id])
@@ -147,15 +130,19 @@ class MeetingsController < ApplicationController
   def convert_params
     # We do some preprocessing of `meeting_params` that we will store in this
     # instance variable.
-    @converted_params = meeting_params.to_h
+    @converted_params = meeting_params.to_h.except(:start_date, :start_time_hour)
 
     @converted_params[:duration] = @converted_params[:duration].to_hours
+
+    @converted_params[:start_time] = ActiveSupport::TimeZone[(User.current.time_zone || Time.zone).name]
+                                     .parse("#{meeting_params[:start_date]} #{meeting_params[:start_time_hour]}")
+                                     .in_time_zone('UTC')
+
     # Force defaults on participants
     @converted_params[:participants_attributes] ||= {}
     @converted_params[:participants_attributes].each { |p| p.reverse_merge! attended: false, invited: false }
   end
 
-private
   def meeting_params
     params.require(:meeting).permit(:title, :location, :start_time, :duration, :start_date, :start_time_hour,
       participants_attributes: [:email, :name, :invited, :attended, :user, :user_id, :meeting, :id])
