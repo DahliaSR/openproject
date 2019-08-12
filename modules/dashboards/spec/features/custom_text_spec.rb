@@ -50,6 +50,8 @@ describe 'Project description widget on dashboard', type: :feature, js: true do
   let(:dashboard_page) do
     Pages::Dashboard.new(project)
   end
+  let(:editor) { ::Components::WysiwygEditor.new }
+  let(:image_fixture) { Rails.root.join('spec/fixtures/files/image.png') }
 
   before do
     login_as user
@@ -57,7 +59,7 @@ describe 'Project description widget on dashboard', type: :feature, js: true do
     dashboard_page.visit!
   end
 
-  it 'can add the widget and see the description in it' do
+  it 'can add the widget set custom text and upload attachments' do
     dashboard_page.add_column(3, before_or_after: :before)
 
     sleep(0.1)
@@ -92,6 +94,65 @@ describe 'Project description widget on dashboard', type: :feature, js: true do
 
       expect(page)
         .to have_selector('.wp-edit-field--display-field', text: 'My own little text')
+
+      # adding an image
+      find('.inplace-editing--trigger-container').click
+
+      editor.drag_attachment image_fixture, 'Image uploaded the first time'
+
+      field.save!
+
+      expect(page)
+        .to have_selector('#content img', count: 1)
+      expect(page)
+        .to have_content('Image uploaded the first time')
+      expect(page)
+        .not_to have_selector('attachment-list-item', text: 'image.png')
     end
   end
+
+  #it 'can upload an image to new and existing wiki page via drag & drop' do
+  #  find('.inplace-editing--trigger-container').click
+
+  #  field = WorkPackageEditorField.new(page, 'description', selector: '.wp-inline-edit--active-field')
+
+  #  expect(page).to have_selector('attachment-list-item', text: 'image.png')
+  #  expect(page).not_to have_selector('notification-upload-progress')
+
+  #  click_on 'Save'
+
+  #  expect(page).to have_selector('#content img', count: 1)
+  #  expect(page).to have_content('Image uploaded the first time')
+  #  expect(page).to have_selector('attachment-list-item', text: 'image.png')
+
+  #  within '.toolbar-items' do
+  #    click_on "Edit"
+  #  end
+
+  #  # Replace one image with a named attachment URL (Regression #28381)
+  #  editor.set_markdown "![my-first-image](image.png)\n\nText that prevents the two images colliding"
+
+  #  editor.drag_attachment image_fixture, 'Image uploaded the second time'
+
+  #  editor.in_editor do |container, _|
+  #    # Expect URL is mapped to the correct URL
+  #    expect(container).to have_selector('img[src^="/api/v3/attachments/"]')
+  #    expect(container).to have_no_selector('img[src="image.png"]')
+  #  end
+
+  #  expect(page).to have_selector('attachment-list-item', text: 'image.png', count: 2)
+  #  expect(page).not_to have_selector('notification-upload-progress')
+
+  #  click_on 'Save'
+
+  #  expect(page).to have_selector('#content img', count: 2)
+  #  expect(page).to have_content('Image uploaded the second time')
+  #  expect(page).to have_selector('attachment-list-item', text: 'image.png', count: 2)
+
+  #  # Both images rendered referring to the api endpoint
+  #  expect(page).to have_selector('img[src^="/api/v3/attachments/"]', count: 2)
+
+  #  expect(wiki_page_content).to include '![my-first-image](image.png)'
+  #  expect(wiki_page_content).to include '![](/api/v3/attachments'
+  #end
 end

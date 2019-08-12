@@ -31,6 +31,7 @@
 class Grids::SetAttributesService < ::BaseServices::SetAttributes
   private
 
+  # TODO: extend by attachments_replacements assignments similar to how it is done in the WP service
   def set_attributes(attributes)
     widget_attributes = attributes.delete(:widgets)
 

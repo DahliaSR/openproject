@@ -70,6 +70,8 @@ module API
                                   current_user: current_user)
             end
 
+            mount ::API::V3::Attachments::AttachmentsByGridAPI
+
             # Hack to be able to use the Default* mount while having the permission check
             # not affecting the GET request
             namespace do
