@@ -35,7 +35,7 @@ export class CustomTextEditFieldService extends EditFieldHandler {
   }
 
   public reinitialize(value:GridWidgetResource) {
-    this.changeset = new CustomTextChangeset(this.injector, value.options);
+    this.changeset = new CustomTextChangeset(this.injector, this.newEditResource(value));
   }
 
   /**
