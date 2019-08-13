@@ -51,7 +51,8 @@ describe 'Project description widget on dashboard', type: :feature, js: true do
     Pages::Dashboard.new(project)
   end
   let(:image_fixture) { Rails.root.join('spec/fixtures/files/image.png') }
-  let(:editor) { ::Components::WysiwygEditor.new 'body'}
+  let(:editor) { ::Components::WysiwygEditor.new 'body' }
+  let(:field) { WorkPackageEditorField.new(page, 'description', selector: '.wp-inline-edit--active-field') }
 
   before do
     login_as user
@@ -79,8 +80,6 @@ describe 'Project description widget on dashboard', type: :feature, js: true do
     within custom_text_widget.area do
       find('.inplace-editing--trigger-container').click
 
-      field = WorkPackageEditorField.new(page, 'description', selector: '.wp-inline-edit--active-field')
-
       field.set_value('My own little text')
       field.save!
 
@@ -106,8 +105,6 @@ describe 'Project description widget on dashboard', type: :feature, js: true do
     editor.drag_attachment image_fixture, 'Image uploaded'
 
     within custom_text_widget.area do
-      field = WorkPackageEditorField.new(page, 'description', selector: '.wp-inline-edit--active-field')
-
       expect(page).to have_selector('attachment-list-item', text: 'image.png')
       expect(page).to have_no_selector('notifications-upload-progress')
 
