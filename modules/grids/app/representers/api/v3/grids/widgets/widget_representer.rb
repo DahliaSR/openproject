@@ -44,7 +44,7 @@ module API
                        .widget_strategy(represented.grid.class, represented.identifier)
                        .options_representer
                        .constantize
-                       .new(represented.options.with_indifferent_access,
+                       .new(represented.options.with_indifferent_access.merge(grid: represented.grid),
                             current_user: decorator.current_user)
                    }
 
