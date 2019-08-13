@@ -36,7 +36,7 @@ module Dashboards
     initializer 'dashboards.conversion' do
       require Rails.root.join('config', 'constants', 'ar_to_api_conversions')
 
-      Constants::ARToAPIConversions.add(:'grids/dashboard' => 'grid')
+      Constants::ARToAPIConversions.add('grids/dashboard': 'grid')
     end
 
     config.to_prepare do
